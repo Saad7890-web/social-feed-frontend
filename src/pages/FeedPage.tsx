@@ -6,9 +6,7 @@ export default function FeedPage() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
-  if (!user) {
-    return null;
-  }
+  if (!user) return null;
 
   const handleSignOut = async () => {
     await signOut();
