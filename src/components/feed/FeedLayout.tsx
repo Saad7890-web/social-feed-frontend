@@ -3,11 +3,13 @@ import { Link } from "react-router-dom";
 import { formatRelativeTime } from "../../lib/date";
 import type { User } from "../../types/auth";
 import type { PostItem, Visibility } from "../../types/post";
+import { PostComments, type PostCommentThreadState } from "./PostComment";
 import { PostComposer } from "./PostComposer";
 
 type FeedLayoutProps = {
   user: User;
   posts: PostItem[];
+  commentThreads: Record<number, PostCommentThreadState>;
   isInitialLoading: boolean;
   isLoadingMore: boolean;
   feedError: string | null;
@@ -30,6 +32,21 @@ type FeedLayoutProps = {
     onCancelEdit: () => void;
   };
   onLikePost: (post: PostItem) => Promise<void> | void;
+  onToggleComments: (post: PostItem) => Promise<void> | void;
+  onCommentDraftChange: (postId: number, value: string) => void;
+  onSubmitComment: (postId: number) => void;
+  onLoadMoreComments: (postId: number) => void;
+  onToggleCommentLike: (postId: number, commentId: number) => void;
+  onToggleReplyComposer: (postId: number, commentId: number) => void;
+  onReplyDraftChange: (
+    postId: number,
+    commentId: number,
+    value: string,
+  ) => void;
+  onSubmitReply: (postId: number, commentId: number) => void;
+  onLoadReplies: (postId: number, commentId: number) => void;
+  onLoadMoreReplies: (postId: number, commentId: number) => void;
+  onToggleReplyLike: (postId: number, replyId: number) => void;
   onEditPost: (post: PostItem) => void;
   onDeletePost: (post: PostItem) => Promise<void> | void;
   onLoadMore: () => Promise<void> | void;
@@ -194,16 +211,44 @@ function FeedPostCard({
   post,
   currentUserId,
   busy,
+  commentThread,
   onLikePost,
+  onToggleComments,
   onEditPost,
   onDeletePost,
+  onCommentDraftChange,
+  onSubmitComment,
+  onLoadMoreComments,
+  onToggleCommentLike,
+  onToggleReplyComposer,
+  onReplyDraftChange,
+  onSubmitReply,
+  onLoadReplies,
+  onLoadMoreReplies,
+  onToggleReplyLike,
 }: {
   post: PostItem;
   currentUserId: number;
   busy: boolean;
+  commentThread: PostCommentThreadState;
   onLikePost: (post: PostItem) => Promise<void> | void;
+  onToggleComments: (post: PostItem) => Promise<void> | void;
   onEditPost: (post: PostItem) => void;
   onDeletePost: (post: PostItem) => Promise<void> | void;
+  onCommentDraftChange: (postId: number, value: string) => void;
+  onSubmitComment: (postId: number) => void;
+  onLoadMoreComments: (postId: number) => void;
+  onToggleCommentLike: (postId: number, commentId: number) => void;
+  onToggleReplyComposer: (postId: number, commentId: number) => void;
+  onReplyDraftChange: (
+    postId: number,
+    commentId: number,
+    value: string,
+  ) => void;
+  onSubmitReply: (postId: number, commentId: number) => void;
+  onLoadReplies: (postId: number, commentId: number) => void;
+  onLoadMoreReplies: (postId: number, commentId: number) => void;
+  onToggleReplyLike: (postId: number, replyId: number) => void;
 }) {
   const authorName = safeName(post.authorFirstName, post.authorLastName);
   const timeLabel = formatRelativeTime(post.createdAt);
@@ -308,18 +353,35 @@ function FeedPostCard({
         <button
           type="button"
           className="_feed_inner_timeline_reaction_comment _feed_reaction"
-          disabled
+          disabled={busy}
+          onClick={() => void onToggleComments(post)}
         >
-          Comment
+          {commentThread.isOpen ? "Hide comments" : "Comment"}
         </button>
         <button
           type="button"
           className="_feed_inner_timeline_reaction_share _feed_reaction"
-          disabled
+          disabled={busy}
+          onClick={() => void onToggleComments(post)}
         >
           Reply
         </button>
       </div>
+
+      <PostComments
+        postId={post.id}
+        thread={commentThread}
+        onLoadMoreComments={onLoadMoreComments}
+        onCommentDraftChange={onCommentDraftChange}
+        onSubmitComment={onSubmitComment}
+        onToggleCommentLike={onToggleCommentLike}
+        onToggleReplyComposer={onToggleReplyComposer}
+        onReplyDraftChange={onReplyDraftChange}
+        onSubmitReply={onSubmitReply}
+        onLoadReplies={onLoadReplies}
+        onLoadMoreReplies={onLoadMoreReplies}
+        onToggleReplyLike={onToggleReplyLike}
+      />
     </div>
   );
 }
@@ -327,6 +389,7 @@ function FeedPostCard({
 export function FeedLayout({
   user,
   posts,
+  commentThreads,
   isInitialLoading,
   isLoadingMore,
   feedError,
@@ -334,6 +397,17 @@ export function FeedLayout({
   busyPostIds,
   composer,
   onLikePost,
+  onToggleComments,
+  onCommentDraftChange,
+  onSubmitComment,
+  onLoadMoreComments,
+  onToggleCommentLike,
+  onToggleReplyComposer,
+  onReplyDraftChange,
+  onSubmitReply,
+  onLoadReplies,
+  onLoadMoreReplies,
+  onToggleReplyLike,
   onEditPost,
   onDeletePost,
   onLoadMore,
@@ -708,9 +782,33 @@ export function FeedLayout({
                         post={post}
                         currentUserId={user.id}
                         busy={busyPostIds.includes(post.id)}
+                        commentThread={
+                          commentThreads[post.id] ?? {
+                            isOpen: false,
+                            isLoading: false,
+                            isLoadingMore: false,
+                            error: null,
+                            comments: [],
+                            nextCursor: null,
+                            draft: "",
+                            isSubmitting: false,
+                            repliesByParentId: {},
+                          }
+                        }
                         onLikePost={onLikePost}
+                        onToggleComments={onToggleComments}
                         onEditPost={onEditPost}
                         onDeletePost={onDeletePost}
+                        onCommentDraftChange={onCommentDraftChange}
+                        onSubmitComment={onSubmitComment}
+                        onLoadMoreComments={onLoadMoreComments}
+                        onToggleCommentLike={onToggleCommentLike}
+                        onToggleReplyComposer={onToggleReplyComposer}
+                        onReplyDraftChange={onReplyDraftChange}
+                        onSubmitReply={onSubmitReply}
+                        onLoadReplies={onLoadReplies}
+                        onLoadMoreReplies={onLoadMoreReplies}
+                        onToggleReplyLike={onToggleReplyLike}
                       />
                     ))
                   )}
