@@ -65,3 +65,14 @@ export interface UpdatePostInput {
   visibility?: Visibility;
   image?: PostImagePayload | null;
 }
+
+export interface PostImagePayload {
+  publicId: string;
+  version: number;
+  signature: string;
+  format?: string | null;
+  width?: number | null;
+  height?: number | null;
+  bytes?: number | null;
+  deliveryType: ImageDeliveryType;
+}

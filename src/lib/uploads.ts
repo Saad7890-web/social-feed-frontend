@@ -1,31 +1,31 @@
-import type {
-  ImageDeliveryType,
-  PostImagePayload,
-  Visibility,
-} from "../types/post";
+import type { ApiEnvelope } from "../types/api";
+import type { PostImagePayload, Visibility } from "../types/post";
 import { request, unwrap } from "./api";
-import { ensureCsrfToken } from "./csrf";
 
-type CloudinarySignResponse = {
-  signature?: string;
-  timestamp?: number | string;
-  apiKey?: string;
-  api_key?: string;
-  cloudName?: string;
-  cloud_name?: string;
-  folder?: string;
-  publicId?: string;
-  public_id?: string;
-  uploadUrl?: string;
-  upload_url?: string;
-  url?: string;
-  deliveryType?: ImageDeliveryType;
-  delivery_type?: ImageDeliveryType;
-  resourceType?: string;
-  resource_type?: string;
+type UploadSignature = {
+  cloudName: string;
+  apiKey: string;
+  uploadUrl: string;
+  timestamp: number;
+  signature: string;
+  folder: string;
+  publicId: string;
+  deliveryType: "upload" | "authenticated";
+  resourceType: "image";
+  maxImageSizeBytes: number;
+  allowedContentTypes: string[];
+  fileName: string;
 };
 
-type CloudinaryUploadResult = {
+type SignResponse = {
+  upload: UploadSignature;
+};
+
+type VerifyResponse = {
+  image: PostImagePayload;
+};
+
+type CloudinaryUploadResponse = {
   public_id?: string;
   version?: number | string;
   signature?: string;
@@ -33,149 +33,44 @@ type CloudinaryUploadResult = {
   width?: number | null;
   height?: number | null;
   bytes?: number | null;
-  secure_url?: string;
-  url?: string;
 };
 
-function toStringValue(value: unknown): string | null {
+function asString(value: unknown): string | null {
   if (typeof value === "string" && value.trim()) return value.trim();
   if (typeof value === "number" && Number.isFinite(value)) return String(value);
   return null;
 }
 
-function toNumberValue(value: unknown): number | null {
-  const numberValue =
-    typeof value === "number"
-      ? value
-      : typeof value === "string" && value.trim().length > 0
-        ? Number(value)
-        : Number.NaN;
-
-  return Number.isFinite(numberValue) ? numberValue : null;
+function asNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
 }
 
-function normalizeSignResponse(input: unknown): CloudinarySignResponse {
-  const root = unwrap(input) as Record<string, unknown> | null;
+function normalizeSignResponse(
+  payload: ApiEnvelope<SignResponse> | SignResponse,
+): UploadSignature {
+  const data = unwrap(payload) as SignResponse | null;
 
-  if (!root || typeof root !== "object") {
-    return {};
+  if (
+    !data ||
+    typeof data !== "object" ||
+    !("upload" in data) ||
+    !data.upload
+  ) {
+    throw new Error("Upload signature response is invalid.");
   }
 
-  return {
-    signature: toStringValue(root.signature),
-    timestamp: root.timestamp ?? root.ts,
-    apiKey: toStringValue(root.apiKey ?? root.api_key),
-    cloudName: toStringValue(root.cloudName ?? root.cloud_name),
-    folder: toStringValue(root.folder),
-    publicId: toStringValue(root.publicId ?? root.public_id),
-    uploadUrl: toStringValue(root.uploadUrl ?? root.upload_url ?? root.url),
-    deliveryType:
-      toStringValue(root.deliveryType ?? root.delivery_type) === "authenticated"
-        ? "authenticated"
-        : "upload",
-    resourceType: toStringValue(root.resourceType ?? root.resource_type),
-  };
+  return data.upload;
 }
 
-function buildCloudinaryUploadUrl(sign: CloudinarySignResponse) {
-  const explicitUrl =
-    sign.uploadUrl ?? import.meta.env.VITE_CLOUDINARY_UPLOAD_URL ?? null;
-
-  if (explicitUrl) {
-    return explicitUrl;
-  }
-
-  const cloudName =
-    sign.cloudName ?? import.meta.env.VITE_CLOUDINARY_CLOUD_NAME ?? null;
-
-  if (!cloudName) {
-    throw new Error(
-      "Cloudinary upload is not configured. Add VITE_CLOUDINARY_CLOUD_NAME or return uploadUrl from the sign endpoint.",
-    );
-  }
-
-  return `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`;
-}
-
-export async function signImageUpload(
-  file: File,
-  visibility: Visibility,
-): Promise<CloudinarySignResponse> {
-  await ensureCsrfToken();
-
-  const payload = await request<unknown>({
-    method: "post",
-    url: "/uploads/images/sign",
-    data: {
-      fileName: file.name,
-      mimeType: file.type,
-      fileSize: file.size,
-      visibility,
-    },
-  });
-
-  return normalizeSignResponse(payload);
-}
-
-export async function uploadImageToCloudinary(
-  file: File,
-  visibility: Visibility,
-): Promise<PostImagePayload> {
-  const sign = await signImageUpload(file, visibility);
-
-  if (!sign.signature || sign.timestamp == null) {
-    throw new Error("Unable to prepare the image upload.");
-  }
-
-  const uploadUrl = buildCloudinaryUploadUrl(sign);
-  const formData = new FormData();
-
-  formData.append("file", file);
-  formData.append("timestamp", String(sign.timestamp));
-  formData.append("signature", sign.signature);
-
-  const apiKey = sign.apiKey ?? import.meta.env.VITE_CLOUDINARY_API_KEY ?? null;
-  if (apiKey) {
-    formData.append("api_key", apiKey);
-  }
-
-  if (sign.folder) {
-    formData.append("folder", sign.folder);
-  }
-
-  if (sign.publicId) {
-    formData.append("public_id", sign.publicId);
-  }
-
-  if (sign.resourceType) {
-    formData.append("resource_type", sign.resourceType);
-  }
-
-  const response = await fetch(uploadUrl, {
-    method: "POST",
-    body: formData,
-  });
-
-  const data = (await response
-    .json()
-    .catch(() => null)) as CloudinaryUploadResult | null;
-
-  if (!response.ok) {
-    const message =
-      (data &&
-      typeof data === "object" &&
-      "error" in data &&
-      typeof (data as { error?: { message?: string } }).error?.message ===
-        "string"
-        ? (data as { error?: { message?: string } }).error?.message
-        : null) ?? "Unable to upload the image.";
-    throw new Error(message);
-  }
-
-  const publicId = toStringValue(data?.public_id) ?? sign.publicId ?? null;
-
-  const version = toNumberValue(data?.version);
-  const signature = toStringValue(data?.signature) ?? sign.signature ?? null;
+function normalizeCloudinaryResponse(data: CloudinaryUploadResponse) {
+  const publicId = asString(data.public_id);
+  const version = asNumber(data.version);
+  const signature = asString(data.signature);
 
   if (!publicId || version == null || !signature) {
     throw new Error("The image upload response is incomplete.");
@@ -185,12 +80,96 @@ export async function uploadImageToCloudinary(
     publicId,
     version,
     signature,
-    format: toStringValue(data?.format),
-    width: toNumberValue(data?.width),
-    height: toNumberValue(data?.height),
-    bytes: toNumberValue(data?.bytes),
-    deliveryType:
-      sign.deliveryType ??
-      (visibility === "private" ? "authenticated" : "upload"),
+    format: asString(data.format),
+    width: asNumber(data.width),
+    height: asNumber(data.height),
+    bytes: asNumber(data.bytes),
   };
+}
+
+export async function signImageUpload(file: File, visibility: Visibility) {
+  const payload = await request<SignResponse>({
+    method: "post",
+    url: "/uploads/images/sign",
+    data: {
+      fileName: file.name,
+      contentType: file.type,
+      size: file.size,
+      visibility,
+    },
+  });
+
+  return normalizeSignResponse(payload);
+}
+
+async function uploadToCloudinary(file: File, sign: UploadSignature) {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("timestamp", String(sign.timestamp));
+  formData.append("signature", sign.signature);
+  formData.append("api_key", sign.apiKey);
+  formData.append("public_id", sign.publicId);
+  formData.append("folder", sign.folder);
+
+  if (sign.deliveryType) {
+    formData.append("type", sign.deliveryType);
+  }
+
+  const response = await fetch(sign.uploadUrl, {
+    method: "POST",
+    body: formData,
+  });
+
+  const raw = (await response.json().catch(() => null)) as
+    | CloudinaryUploadResponse
+    | { error?: { message?: string } }
+    | null;
+
+  if (!response.ok) {
+    const message =
+      raw && "error" in raw && typeof raw.error?.message === "string"
+        ? raw.error.message
+        : "Unable to upload the image.";
+    throw new Error(message);
+  }
+
+  return normalizeCloudinaryResponse(raw as CloudinaryUploadResponse);
+}
+
+async function verifyUploadedImage(image: {
+  publicId: string;
+  version: number;
+  signature: string;
+  format?: string | null;
+  width?: number | null;
+  height?: number | null;
+  bytes?: number | null;
+  deliveryType: "upload" | "authenticated";
+}): Promise<PostImagePayload> {
+  const payload = await request<VerifyResponse>({
+    method: "post",
+    url: "/uploads/images/verify",
+    data: image,
+  });
+
+  return unwrap(payload).image;
+}
+
+export async function uploadPostImage(
+  file: File,
+  visibility: Visibility,
+): Promise<PostImagePayload> {
+  const sign = await signImageUpload(file, visibility);
+  const uploaded = await uploadToCloudinary(file, sign);
+
+  return verifyUploadedImage({
+    publicId: uploaded.publicId,
+    version: uploaded.version,
+    signature: uploaded.signature,
+    format: uploaded.format ?? null,
+    width: uploaded.width ?? null,
+    height: uploaded.height ?? null,
+    bytes: uploaded.bytes ?? null,
+    deliveryType: sign.deliveryType,
+  });
 }
