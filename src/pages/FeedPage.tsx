@@ -354,7 +354,12 @@ export default function FeedPage() {
   }, [clearImagePreview]);
 
   const handleSubmitPost = useCallback(async () => {
-    if (!body.trim()) {
+    const trimmedBody = body.trim();
+
+    const hasText = trimmedBody.length > 0;
+    const hasImage = Boolean(imageFile);
+
+    if (!hasText && !hasImage) {
       setComposerError("Write something first.");
       return;
     }
@@ -368,7 +373,7 @@ export default function FeedPage() {
           : undefined;
 
         const updated = await updatePostRequest(editingPostId, {
-          body: body.trim(),
+          body: trimmedBody,
           visibility,
           ...(image ? { image } : {}),
         });
@@ -382,7 +387,7 @@ export default function FeedPage() {
           : null;
 
         const created = await createPostRequest({
-          body: body.trim(),
+          body: trimmedBody,
           visibility,
           image,
         });
