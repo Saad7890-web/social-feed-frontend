@@ -311,7 +311,12 @@ function FeedPostCard({
           </div>
         </div>
 
-        <p className="_feed_inner_timeline_post_desc">{post.body}</p>
+        <p
+          className="_feed_inner_timeline_post_desc"
+          style={{ fontWeight: 400, color: "#000" }}
+        >
+          {post.body}
+        </p>
       </div>
 
       {imageSrc ? (
@@ -325,13 +330,21 @@ function FeedPostCard({
       ) : null}
 
       <div className="_feed_inner_timeline_total_reacts _padd_r24 _padd_l24 _mar_b26">
-        <div className="_feed_inner_timeline_total_reacts_txt">
-          <span className="_feed_inner_timeline_total_reacts_para">
-            {post.likeCount} likes
-          </span>
-          <span className="_feed_inner_timeline_total_reacts_para1">
-            {post.commentCount} comments
-          </span>
+        <div className="_feed_inner_timeline_total_reacts _padd_r24 _padd_l24 _mar_b26">
+          <div className="_feed_inner_timeline_total_reacts_txt">
+            <span className="_feed_inner_timeline_total_reacts_para">
+              <span className="_feed_inner_timeline_total_reacts_circle">
+                {post.likeCount}
+              </span>
+            </span>
+
+            <span
+              className="_feed_inner_timeline_total_reacts_para1"
+              style={{ display: "inline-block", marginTop: "5px" }}
+            >
+              {post.commentCount} comments
+            </span>
+          </div>
         </div>
 
         <p className="_feed_inner_timeline_total_reacts_para2">
@@ -342,13 +355,34 @@ function FeedPostCard({
       <div className="_feed_inner_timeline_reaction _padd_r24 _padd_l24">
         <button
           type="button"
-          className={`_feed_inner_timeline_reaction_link _feed_reaction ${
+          className={`_feed_inner_timeline_reaction_link _feed_reaction _feed_inner_timeline_reaction_emoji_link ${
             post.likedByMe ? "_feed_reaction_active" : ""
           }`}
           disabled={busy}
           onClick={() => void onLikePost(post)}
         >
-          {post.likedByMe ? "Unlike" : "Like"}
+          <span
+            className={post.likedByMe ? "_reaction_heart" : "_reaction_like"}
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+            >
+              <path
+                d="M12.1 20.3L12 20.4L11.89 20.3C6.14 15.1 2.4 11.7 2.4 7.6C2.4 4.9 4.5 2.8 7.2 2.8C8.8 2.8 10.3 3.6 11.2 4.9C12.1 3.6 13.6 2.8 15.2 2.8C17.9 2.8 20 4.9 20 7.6C20 11.7 16.26 15.1 12.1 20.3Z"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            <span>{post.likedByMe ? "Unlike" : "Like"}</span>
+          </span>
+          <span className="_total">{post.likeCount}</span>
         </button>
         <button
           type="button"
