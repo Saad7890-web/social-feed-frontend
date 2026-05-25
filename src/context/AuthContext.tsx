@@ -33,6 +33,21 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+let bootstrapSessionPromise: Promise<User> | null = null;
+
+async function loadUserOnce() {
+  if (!bootstrapSessionPromise) {
+    bootstrapSessionPromise = (async () => {
+      await ensureCsrfToken();
+      return getCurrentUser();
+    })().finally(() => {
+      bootstrapSessionPromise = null;
+    });
+  }
+
+  return bootstrapSessionPromise;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [status, setStatus] = useState<AuthStatus>("loading");
@@ -43,17 +58,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSessionError(null);
 
     try {
-      await ensureCsrfToken();
-      const currentUser = await getCurrentUser();
+      const currentUser = await loadUserOnce();
       setUser(currentUser);
       setStatus("authenticated");
-    } catch (error) {
+    } catch {
       setUser(null);
       setStatus("unauthenticated");
       setSessionError(null);
-
-      // Keep this silent in the UI unless we later need a session recovery banner.
-      void error;
     }
   }, []);
 
