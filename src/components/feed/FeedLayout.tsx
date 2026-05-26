@@ -254,6 +254,7 @@ function FeedPostCard({
   const timeLabel = formatRelativeTime(post.createdAt);
   const imageSrc = post.imageUrl || null;
   const canEdit = post.authorId === currentUserId;
+  const [isLikeModalOpen, setIsLikeModalOpen] = useState(false);
 
   const likersPreview = useMemo(() => {
     if (!post.likersPreview.length) return "";
@@ -330,27 +331,171 @@ function FeedPostCard({
       ) : null}
 
       <div className="_feed_inner_timeline_total_reacts _padd_r24 _padd_l24 _mar_b26">
-        <div className="_feed_inner_timeline_total_reacts _padd_r24 _padd_l24 _mar_b26">
-          <div className="_feed_inner_timeline_total_reacts_txt">
+        <div
+          className="_feed_inner_timeline_total_reacts_txt"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            width: "100%",
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setIsLikeModalOpen(true)}
+            style={{
+              border: "none",
+              background: "transparent",
+              padding: 0,
+              margin: 0,
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+            }}
+            aria-label="View people who liked this post"
+          >
             <span className="_feed_inner_timeline_total_reacts_para">
               <span className="_feed_inner_timeline_total_reacts_circle">
                 {post.likeCount}
               </span>
             </span>
+          </button>
 
-            <span
-              className="_feed_inner_timeline_total_reacts_para1"
-              style={{ display: "inline-block", marginTop: "5px" }}
+          <span
+            className="_feed_inner_timeline_total_reacts_para1"
+            style={{
+              display: "inline-block",
+              marginTop: 0,
+              textAlign: "right",
+            }}
+          >
+            {post.commentCount} comments
+          </span>
+        </div>
+      </div>
+
+      {isLikeModalOpen ? (
+        <div
+          role="presentation"
+          onClick={() => setIsLikeModalOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 9999,
+            background: "rgba(0, 0, 0, 0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={`like-dialog-title-${post.id}`}
+            onClick={(event) => event.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: 420,
+              background: "#fff",
+              borderRadius: 16,
+              overflow: "hidden",
+              boxShadow: "0 24px 64px rgba(0, 0, 0, 0.22)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "16px 18px",
+                borderBottom: "1px solid #eee",
+              }}
             >
-              {post.commentCount} comments
-            </span>
+              <h4
+                id={`like-dialog-title-${post.id}`}
+                style={{
+                  margin: 0,
+                  fontSize: 16,
+                  fontWeight: 600,
+                  color: "#000",
+                }}
+              >
+                People who liked this post
+              </h4>
+              <button
+                type="button"
+                onClick={() => setIsLikeModalOpen(false)}
+                aria-label="Close dialog"
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  fontSize: 22,
+                  lineHeight: 1,
+                  cursor: "pointer",
+                  color: "#666",
+                  padding: 0,
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <div style={{ padding: 18 }}>
+              <p
+                className="_feed_inner_timeline_total_reacts_para2"
+                style={{ marginTop: 0, marginBottom: 14 }}
+              >
+                {likersPreview || "Be the first to like this post."}
+              </p>
+
+              {post.likersPreview.length ? (
+                <div style={{ display: "grid", gap: 10 }}>
+                  {post.likersPreview.map((person) => {
+                    const name = safeName(person.firstName, person.lastName);
+                    return (
+                      <div
+                        key={`${person.firstName}-${person.lastName}`}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 12,
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: 34,
+                            height: 34,
+                            borderRadius: "50%",
+                            overflow: "hidden",
+                            flex: "0 0 auto",
+                            background: "#f1f1f1",
+                          }}
+                        >
+                          <Avatar
+                            src="/assets/images/post_img.png"
+                            alt={name}
+                          />
+                        </div>
+                        <span
+                          style={{
+                            fontSize: 14,
+                            fontWeight: 500,
+                            color: "#000",
+                          }}
+                        >
+                          {name}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>
-
-        <p className="_feed_inner_timeline_total_reacts_para2">
-          {likersPreview || "Be the first to like this post."}
-        </p>
-      </div>
+      ) : null}
 
       <div className="_feed_inner_timeline_reaction _padd_r24 _padd_l24">
         <button
