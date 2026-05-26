@@ -1,7 +1,8 @@
 import axios from "axios";
 
 const rawBaseUrl =
-  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:5000/api";
+  import.meta.env.VITE_API_BASE_URL ??
+  "https://social-feed-backend-5q1x.onrender.com/api";
 export const API_BASE_URL = rawBaseUrl.replace(/\/$/, "");
 
 export const http = axios.create({
