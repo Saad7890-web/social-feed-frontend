@@ -164,7 +164,3 @@ If the backend base URL changes, rebuild the frontend image or re-run the Vite b
 2. Build the static bundle.
 3. Serve the `dist` output from Nginx or any static hosting platform.
 4. Keep the backend and frontend as separate deployable services.
-
-## License
-
-Add your preferred license here if you plan to publish the project.
